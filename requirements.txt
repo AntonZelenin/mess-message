@@ -1,0 +1,7 @@
+fastapi~=0.109.0
+sqlalchemy~=2.0.25
+alembic~=1.13.1
+pydantic~=2.5.3
+uvicorn[standard]~=0.26.0
+result~=0.16.0
+requests~=2.31.0
