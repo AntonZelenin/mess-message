@@ -2,12 +2,13 @@ from fastapi import FastAPI, Request
 
 from mess_message import schemas, sender
 from mess_message import repository
+from mess_message.models import chat
 
 app = FastAPI()
 
 
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
+async def make_sure_user_id_is_present(request: Request, call_next):
     x_user_id = request.headers.get("x-user-id")
     if x_user_id is None:
         return {"message": "Unauthorized"}, 401
@@ -22,3 +23,8 @@ async def send_message(message: schemas.Message):
         text=message.text,
     )
     sender.send_message(message)
+
+
+@app.get("/api/v1/messages")
+async def get_messages(chat_id: int, number: int = 10) -> list[chat.Message]:
+    return repository.get_messages(chat_id=chat_id, number=number)

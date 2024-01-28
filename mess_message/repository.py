@@ -12,3 +12,7 @@ def create_message(chat_id: int, user_id: str, text: str) -> Message:
     session.commit()
 
     return message
+
+
+def get_messages(chat_id: int, number: int = 10) -> list[Message]:
+    return session.query(Message).filter_by(chat_id=chat_id).limit(number).all()
