@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import Integer, String, ForeignKey, PrimaryKeyConstraint
 from sqlalchemy.orm import mapped_column, Mapped
 
@@ -29,4 +31,4 @@ class Message(Base):
     chat_id: Mapped[int] = mapped_column(Integer, ForeignKey('chats.id'))
     user_id: Mapped[str] = mapped_column(String(32))
     text: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[str] = mapped_column(String(32), default=datetime.now(timezone.utc).isoformat())
