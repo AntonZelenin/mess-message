@@ -7,7 +7,7 @@ from mess_message.models import Base
 class Chat(Base):
     __tablename__ = 'chats'
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, unique=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
 
