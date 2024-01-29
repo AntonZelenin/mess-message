@@ -1,5 +1,7 @@
+import os
 from logging.config import fileConfig
 
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
@@ -7,6 +9,10 @@ from alembic import context
 
 from mess_message import models
 from mess_message.models.chat import Chat, ChatMember, Message
+
+
+if os.environ.get('ENVIRONMENT', 'dev') == 'dev':
+    load_dotenv(os.environ.get('ENV_FILE', 'dev.env'))
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -27,6 +33,7 @@ target_metadata = models.Base.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+config.set_main_option('sqlalchemy.url', os.environ.get('DB_URL'))
 
 
 def run_migrations_offline() -> None:

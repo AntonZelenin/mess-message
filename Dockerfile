@@ -6,8 +6,15 @@ COPY ./requirements.txt .
 
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
-COPY mess_message .
+RUN mkdir "mess_message"
+RUN mkdir "alembic"
+
+COPY mess_message ./mess_message
+COPY alembic ./alembic
+COPY alembic.ini .
+
+ENV ENVIRONMENT=production
 
 EXPOSE 80
 
-CMD ["uvicorn", "app.main::app", "--host", "0.0.0.0", "--port", "8003"]
+CMD ["uvicorn", "mess_message.main:app", "--host", "0.0.0.0", "--port", "80"]

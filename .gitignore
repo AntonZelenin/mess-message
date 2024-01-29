@@ -1,3 +1,4 @@
 .idea/
 __pycache__/
 mess-chats.db
+*.env

@@ -26,5 +26,5 @@ async def send_message(message: schemas.Message):
 
 
 @app.get("/api/v1/messages")
-async def get_messages(chat_id: int, number: int = 10) -> list[chat.Message]:
+async def get_messages(chat_id: int, number: int = 10) -> list[schemas.Message]:
     return repository.get_messages(chat_id=chat_id, number=number)
