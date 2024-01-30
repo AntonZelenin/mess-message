@@ -29,6 +29,6 @@ class Message(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     chat_id: Mapped[int] = mapped_column(Integer, ForeignKey('chats.id'))
-    user_id: Mapped[str] = mapped_column(String(32))
+    sender_id: Mapped[str] = mapped_column(String(32))
     text: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[str] = mapped_column(String(32), default=datetime.now(timezone.utc).isoformat())

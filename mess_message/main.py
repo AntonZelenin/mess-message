@@ -1,9 +1,11 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 
 from mess_message import schemas, sender
 from mess_message import repository
+from mess_message.managers import ConnectionManager
 
 app = FastAPI()
+conn_manager = ConnectionManager()
 
 
 @app.middleware("http")
@@ -14,16 +16,23 @@ async def make_sure_user_id_is_present(request: Request, call_next):
     return await call_next(request)
 
 
-@app.post("/api/message/v1/messages")
-async def send_message(message: schemas.Message):
-    message = repository.create_message(
-        chat_id=message.chat_id,
-        user_id=message.user_id,
-        text=message.text,
-    )
-    sender.send_message(message)
+@app.websocket("/ws/message/v1/messages")
+async def message_socket(websocket: WebSocket, message: schemas.Message):
+    user_id = websocket.headers.get("x-user-id")
+    await conn_manager.connect(user_id, websocket)
+
+    try:
+        message = await repository.create_message(
+            chat_id=message.chat_id,
+            sender_id=user_id,
+            text=message.text,
+        )
+        # todo it should be async
+        sender.send_message(message)
+    except WebSocketDisconnect:
+        conn_manager.disconnect(user_id, websocket)
 
 
 @app.get("/api/message/v1/messages")
 async def get_messages(chat_id: int, number: int = 10) -> list[schemas.Message]:
-    return repository.get_messages(chat_id=chat_id, number=number)
+    return await repository.get_messages(chat_id=chat_id, number=number)
