@@ -1,7 +1,9 @@
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from mess_message import schemas, sender
 from mess_message import repository
+from mess_message.db import get_session
 from mess_message.managers import ConnectionManager
 
 app = FastAPI()
@@ -17,12 +19,13 @@ async def make_sure_user_id_is_present(request: Request, call_next):
 
 
 @app.websocket("/ws/message/v1/messages")
-async def message_socket(websocket: WebSocket, message: schemas.Message):
+async def message_socket(websocket: WebSocket, message: schemas.Message, session: AsyncSession = Depends(get_session)):
     user_id = websocket.headers.get("x-user-id")
     await conn_manager.connect(user_id, websocket)
 
     try:
         message = await repository.create_message(
+            session,
             chat_id=message.chat_id,
             sender_id=user_id,
             text=message.text,
@@ -34,5 +37,7 @@ async def message_socket(websocket: WebSocket, message: schemas.Message):
 
 
 @app.get("/api/message/v1/messages")
-async def get_messages(chat_id: int, number: int = 10) -> list[schemas.Message]:
-    return await repository.get_messages(chat_id=chat_id, number=number)
+async def get_messages(
+        chat_id: int, number: int = 10, session: AsyncSession = Depends(get_session),
+) -> list[schemas.Message]:
+    return list(await repository.get_messages(session, chat_id=chat_id, number=number))
