@@ -1,8 +1,13 @@
-from fastapi import status, Header, HTTPException
+import httpx
+
+from mess_message import settings
 
 
-async def check_user(x_user_id: str = Header(None)):
-    if x_user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+async def get_user_ids_by_username(usernames: list[str]) -> list[str]:
+    # todo make sure all usernames are valid
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f'{settings.get_settings().user_service_url}/api/user/v1/users/ids',
+            json={'usernames': usernames},
         )
+        return response.json()['user_ids']

@@ -17,7 +17,7 @@ class ChatMember(Base):
     __tablename__ = 'chat_members'
 
     chat_id: Mapped[int] = mapped_column(Integer, ForeignKey('chats.id'))
-    user_id: Mapped[str] = mapped_column(String(32))
+    user_id: Mapped[str] = mapped_column(String(32), nullable=False)
 
     __table_args__ = (
         PrimaryKeyConstraint('chat_id', 'user_id'),

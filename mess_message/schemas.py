@@ -8,3 +8,12 @@ class Message(BaseModel):
     class Config:
         from_attributes = True
         strict = True
+
+
+class Chat(BaseModel):
+    name: str
+    member_usernames: list[str]
+
+    class Config:
+        from_attributes = True
+        strict = True
