@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 
 from mess_message import settings
 
-engine = create_async_engine(settings.get_settings().db_url)
+engine = create_async_engine(settings.get_settings().async_db_url)
 async_session = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )

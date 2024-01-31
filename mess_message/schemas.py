@@ -6,4 +6,4 @@ class Message(BaseModel):
     text: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True

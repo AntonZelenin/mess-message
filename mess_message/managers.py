@@ -12,7 +12,7 @@ class ConnectionManager:
         await websocket.accept()
         await self._add(user_id, websocket)
 
-    def disconnect(self, user_id: str, websocket: WebSocket):
+    async def disconnect(self, user_id: str, websocket: WebSocket):
         async with self.lock:
             if user_id in self.active_connections:
                 self.active_connections[user_id].remove(websocket)
