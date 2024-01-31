@@ -8,6 +8,7 @@ from mess_message import constants
 
 class Settings(BaseSettings):
     db_url: str
+    async_db_url: str
 
     def __init__(self):
         if os.environ.get('ENVIRONMENT', 'dev') == 'dev':
