@@ -19,21 +19,24 @@ async def make_sure_user_id_is_present(request: Request, call_next):
 
 
 @app.websocket("/ws/message/v1/messages")
-async def message_socket(websocket: WebSocket, message: schemas.Message, session: AsyncSession = Depends(get_session)):
+async def message_socket(websocket: WebSocket, session: AsyncSession = Depends(get_session)):
+    # todo middleware or depends to check user id header?
     user_id = websocket.headers.get("x-user-id")
     await conn_manager.connect(user_id, websocket)
 
     try:
-        message = await repository.create_message(
+        data = await websocket.receive_text()
+        message = schemas.Message.model_validate_json(data)
+        message_ = await repository.create_message(
             session,
             chat_id=message.chat_id,
             sender_id=user_id,
             text=message.text,
         )
         # todo it should be async
-        sender.send_message(message)
+        sender.send_message(message_)
     except WebSocketDisconnect:
-        conn_manager.disconnect(user_id, websocket)
+        await conn_manager.disconnect(user_id, websocket)
 
 
 @app.get("/api/message/v1/messages")

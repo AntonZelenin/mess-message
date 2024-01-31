@@ -7,3 +7,4 @@ class Message(BaseModel):
 
     class Config:
         from_attributes = True
+        strict = True
