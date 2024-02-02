@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -11,7 +13,7 @@ class Message(BaseModel):
 
 
 class Chat(BaseModel):
-    name: str
+    name: Optional[str]
     member_usernames: list[str]
 
     class Config:

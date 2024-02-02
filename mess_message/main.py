@@ -10,7 +10,7 @@ app = FastAPI()
 conn_manager = ConnectionManager()
 
 
-# todo it's not working, probaably
+# todo it's not working, probably
 @app.middleware('http')
 async def make_sure_user_id_is_present(request: Request, call_next):
     # todo it's duplicate
@@ -34,13 +34,11 @@ async def create_chat(chat: schemas.Chat,  x_sub: str = Header(None), session: A
         await repository.delete_chat(session, chat_db.id)
         raise e
 
-    return {'message': 'Chat created', 'chat_id': chat_db.id}
+    return {'message': 'Chat created', 'chat': chat}
 
 
 @app.websocket('/ws/message/v1/messages')
 async def message_socket(websocket: WebSocket, session: AsyncSession = Depends(get_session)):
-    # todo middleware or depends to check user id header?
-    # todo maybe I should put duplicate user_id in jwt so that I have nice header name
     user_id = websocket.headers.get('x-sub')
     # todo make conn_manager context manager, and maybe a dependency?
     await conn_manager.connect(user_id, websocket)
@@ -74,3 +72,16 @@ async def get_messages(
         chat_id: int, number: int = 10, session: AsyncSession = Depends(get_session),
 ) -> list[schemas.Message]:
     return list(await repository.get_messages(session, chat_id=chat_id, number=number))
+
+
+@app.get('/api/message/v1/chats')
+async def get_chats(num_of_chats: int = 20, session: AsyncSession = Depends(get_session), x_sub: str = Header(None)) -> list[schemas.Chat]:
+    chat_models = list(await repository.get_chats(session, num_of_chats, user_id=x_sub))
+    chats = {}
+    for chat in chat_models:
+        if chat.name not in chats:
+            chats[chat.name] = schemas.Chat(name=chat.name, member_usernames=[])
+
+        chats[chat.name].member_usernames.append(chat.chat_members.user_id)
+
+    return list(chats.values())

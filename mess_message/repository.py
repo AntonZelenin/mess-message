@@ -2,6 +2,7 @@ from typing import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from mess_message.models.chat import Message, Chat, ChatMember
 
@@ -52,3 +53,14 @@ async def delete_chat(session: AsyncSession, chat_id: int) -> None:
     chat = await session.scalar(select(Chat).filter_by(id=chat_id))
     await session.delete(chat)
     await session.commit()
+
+
+async def get_chats(session: AsyncSession, num_of_chats: int, user_id: str) -> Sequence[Chat]:
+    result = await session.execute(
+        select(Chat).
+        join(Chat.chat_members).  # Assuming chat_members is properly defined as a relationship
+        where(ChatMember.user_id == user_id).
+        options(joinedload(Chat.chat_members)).  # Correctly load the chat members
+        limit(num_of_chats)
+    )
+    return result.scalars().unique().all()
