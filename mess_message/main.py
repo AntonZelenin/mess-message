@@ -29,7 +29,7 @@ async def create_chat(chat: schemas.Chat,  x_sub: str = Header(None), session: A
 
     try:
         user_ids = await helpers.user.get_user_ids_by_username(chat.member_usernames)
-        await repository.add_chat_members(session, chat_db.id, [x_sub] + user_ids)
+        await repository.add_chat_members(session, chat_db.id, [x_sub] + list(user_ids.values()))
     except Exception as e:
         await repository.delete_chat(session, chat_db.id)
         raise e
@@ -75,7 +75,11 @@ async def get_messages(
 
 
 @app.get('/api/message/v1/chats')
-async def get_chats(num_of_chats: int = 20, session: AsyncSession = Depends(get_session), x_sub: str = Header(None)) -> list[schemas.Chat]:
+async def get_chats(
+        num_of_chats: int = 20,
+        session: AsyncSession = Depends(get_session),
+        x_sub: str = Header(None),
+) -> list[schemas.Chat]:
     chat_models = list(await repository.get_chats(session, num_of_chats, user_id=x_sub))
     chats = {}
     for chat in chat_models:
@@ -83,5 +87,13 @@ async def get_chats(num_of_chats: int = 20, session: AsyncSession = Depends(get_
             chats[chat.name] = schemas.Chat(name=chat.name, member_usernames=[])
 
         chats[chat.name].member_usernames.append(chat.chat_members.user_id)
+
+    unique_user_ids = set()
+    for chat in chats.values():
+        unique_user_ids.update(chat.member_usernames)
+
+    usernames = await helpers.user.get_user_ids_by_username(list(unique_user_ids))
+    for chat in chats.values():
+        chat.member_usernames = [usernames[user_id] for user_id in chat.member_usernames]
 
     return list(chats.values())
