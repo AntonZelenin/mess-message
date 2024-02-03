@@ -80,7 +80,7 @@ async def get_chats(
         session: AsyncSession = Depends(get_session),
         x_sub: str = Header(None),
 ) -> list[schemas.Chat]:
-    chat_models = list(await repository.get_chats(session, num_of_chats, user_id=x_sub))
+    chat_models = list(await repository.get_recent_chats(session, num_of_chats, user_id=x_sub))
     chats = {}
     for chat in chat_models:
         if chat.name not in chats:
@@ -95,5 +95,11 @@ async def get_chats(
     usernames = await helpers.user.get_user_ids_by_username(list(unique_user_ids))
     for chat in chats.values():
         chat.member_usernames = [usernames[user_id] for user_id in chat.member_usernames]
+
+    chat_ids = [chat.chat_id for chat in chats.values()]
+    messages = await repository.get_chats_messages(session, chat_ids)
+
+    for message in messages:
+        chats[message.chat_id].messages.append(message)
 
     return list(chats.values())

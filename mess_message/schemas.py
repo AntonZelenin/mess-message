@@ -16,6 +16,7 @@ class Chat(BaseModel):
     chat_id: int
     name: Optional[str]
     member_usernames: list[str]
+    messages: list[Message]
 
     class Config:
         from_attributes = True

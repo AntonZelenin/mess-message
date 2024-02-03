@@ -55,12 +55,25 @@ async def delete_chat(session: AsyncSession, chat_id: int) -> None:
     await session.commit()
 
 
-async def get_chats(session: AsyncSession, num_of_chats: int, user_id: str) -> Sequence[Chat]:
+async def get_recent_chats(session: AsyncSession, num_of_chats: int, user_id: str) -> Sequence[Chat]:
+    result = await session.execute(select(Message.chat_id).where(Message.sender_id == user_id).distinct().limit(10))
+    chat_ids = result.scalars().all()
+
     result = await session.execute(
         select(Chat).
-        join(Chat.chat_members).  # Assuming chat_members is properly defined as a relationship
+        join(ChatMember).
         where(ChatMember.user_id == user_id).
-        options(joinedload(Chat.chat_members)).  # Correctly load the chat members
-        limit(num_of_chats)
+        where(Chat.id.in_(chat_ids)).
+        options(joinedload(Chat.chat_members))
     )
     return result.scalars().unique().all()
+
+
+async def get_chats_messages(session: AsyncSession, chat_ids: list, num_of_messages: int = 20) -> Sequence[Message]:
+    return (
+        await session.scalars(
+            select(Message)
+            .filter(Message.chat_id.in_(chat_ids))
+            .order_by(Message.created_at.desc())
+            .limit(num_of_messages))
+    ).all()
