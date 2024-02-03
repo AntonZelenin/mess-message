@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Integer, String, ForeignKey, PrimaryKeyConstraint
+from sqlalchemy import Integer, String, ForeignKey, PrimaryKeyConstraint, Float
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
 from mess_message.models import Base
@@ -35,4 +35,4 @@ class Message(Base):
     chat_id: Mapped[int] = mapped_column(Integer, ForeignKey('chats.id'))
     sender_id: Mapped[str] = mapped_column(String(32))
     text: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[str] = mapped_column(String(32), default=datetime.now(timezone.utc).isoformat())
+    created_at: Mapped[float] = mapped_column(Float, default=datetime.now(timezone.utc).timestamp())

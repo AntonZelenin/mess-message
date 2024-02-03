@@ -2,7 +2,6 @@ from typing import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
 
 from mess_message.models.chat import Message, Chat, ChatMember
 
@@ -55,18 +54,29 @@ async def delete_chat(session: AsyncSession, chat_id: int) -> None:
     await session.commit()
 
 
-async def get_recent_chats(session: AsyncSession, num_of_chats: int, user_id: str) -> Sequence[Chat]:
-    result = await session.execute(select(Message.chat_id).where(Message.sender_id == user_id).distinct().limit(10))
-    chat_ids = result.scalars().all()
+async def get_recent_chats(session: AsyncSession, num_of_chats: int, user_id: str) -> Sequence:
+    # todo indices?
+    res = await session.execute(
+        select(ChatMember.chat_id)
+        .where(ChatMember.user_id == user_id)
+    )
+    user_chat_ids = res.scalars().all()
 
     result = await session.execute(
-        select(Chat).
-        join(ChatMember).
-        where(ChatMember.user_id == user_id).
-        where(Chat.id.in_(chat_ids)).
-        options(joinedload(Chat.chat_members))
+        select(Message.chat_id, Message.created_at)
+        .where(Message.chat_id.in_(user_chat_ids))
+        .order_by(Message.created_at)
+        .distinct()
+        .limit(num_of_chats)
     )
-    return result.scalars().unique().all()
+    recent_chat_ids = result.scalars().all()
+
+    result = await session.execute(
+        select(Chat.id, Chat.name, ChatMember.user_id).
+        join(ChatMember, ChatMember.chat_id == Chat.id).
+        where(Chat.id.in_(recent_chat_ids))
+    )
+    return result.mappings().all()
 
 
 async def get_chats_messages(session: AsyncSession, chat_ids: list, num_of_messages: int = 20) -> Sequence[Message]:

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from mess_message import schemas, sender, helpers
+from mess_message import schemas, sender
 from mess_message import repository
 from mess_message.db import get_session
 from mess_message.managers import ConnectionManager
@@ -28,8 +28,7 @@ async def create_chat(chat: schemas.Chat,  x_sub: str = Header(None), session: A
     chat_db = await repository.create_chat(session, chat.name)
 
     try:
-        user_ids = await helpers.user.get_user_ids_by_username(chat.member_usernames)
-        await repository.add_chat_members(session, chat_db.id, [x_sub] + list(user_ids.values()))
+        await repository.add_chat_members(session, chat_db.id, [x_sub] + list(chat.member_ids))
     except Exception as e:
         await repository.delete_chat(session, chat_db.id)
         raise e
@@ -49,6 +48,8 @@ async def message_socket(websocket: WebSocket, session: AsyncSession = Depends(g
             message = schemas.Message.model_validate_json(data)
 
             if not await repository.is_user_in_chat(session, user_id, message.chat_id):
+                # todo this message will not be shown, it's not http
+                # todo do not tell the user that the chat exists
                 raise HTTPException(status_code=403, detail='You are not in this chat')
 
             message_ = await repository.create_message(
@@ -61,17 +62,11 @@ async def message_socket(websocket: WebSocket, session: AsyncSession = Depends(g
             sender.send_message(message_)
     except WebSocketDisconnect:
         await conn_manager.disconnect(user_id, websocket)
+        raise
     except Exception as e:
         # It's a good practice to handle exceptions to close the WebSocket connection cleanly
         await websocket.close(code=1011)  # Internal Error
         raise e
-
-
-@app.get('/api/message/v1/messages')
-async def get_messages(
-        chat_id: int, number: int = 10, session: AsyncSession = Depends(get_session),
-) -> list[schemas.Message]:
-    return list(await repository.get_messages(session, chat_id=chat_id, number=number))
 
 
 @app.get('/api/message/v1/chats')
@@ -80,24 +75,16 @@ async def get_chats(
         session: AsyncSession = Depends(get_session),
         x_sub: str = Header(None),
 ) -> list[schemas.Chat]:
-    chat_models = list(await repository.get_recent_chats(session, num_of_chats, user_id=x_sub))
+    res = list(await repository.get_recent_chats(session, num_of_chats, user_id=x_sub))
+
     chats = {}
-    for chat in chat_models:
-        if chat.name not in chats:
-            chats[chat.name] = schemas.Chat(chat_id=chat.id, name=chat.name, member_usernames=[])
+    for row in res:
+        if row["id"] not in chats:
+            chats[row["id"]] = schemas.Chat(chat_id=row["id"], name=row["name"], member_ids=[], messages=[])
 
-        chats[chat.name].member_usernames.append(chat.chat_members.user_id)
+        chats[row["id"]].member_ids.append(row["user_id"])
 
-    unique_user_ids = set()
-    for chat in chats.values():
-        unique_user_ids.update(chat.member_usernames)
-
-    usernames = await helpers.user.get_user_ids_by_username(list(unique_user_ids))
-    for chat in chats.values():
-        chat.member_usernames = [usernames[user_id] for user_id in chat.member_usernames]
-
-    chat_ids = [chat.chat_id for chat in chats.values()]
-    messages = await repository.get_chats_messages(session, chat_ids)
+    messages = await repository.get_chats_messages(session, [chat.chat_id for chat in chats.values()])
 
     for message in messages:
         chats[message.chat_id].messages.append(message)

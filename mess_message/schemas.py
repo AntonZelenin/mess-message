@@ -5,7 +5,9 @@ from pydantic import BaseModel
 
 class Message(BaseModel):
     chat_id: int
+    sender_id: str
     text: str
+    created_at: Optional[float] = None
 
     class Config:
         from_attributes = True
@@ -15,7 +17,7 @@ class Message(BaseModel):
 class Chat(BaseModel):
     chat_id: int
     name: Optional[str]
-    member_usernames: list[str]
+    member_ids: list[str]
     messages: list[Message]
 
     class Config:
