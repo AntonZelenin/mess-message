@@ -84,7 +84,7 @@ async def get_chats(
     chats = {}
     for chat in chat_models:
         if chat.name not in chats:
-            chats[chat.name] = schemas.Chat(name=chat.name, member_usernames=[])
+            chats[chat.name] = schemas.Chat(chat_id=chat.id, name=chat.name, member_usernames=[])
 
         chats[chat.name].member_usernames.append(chat.chat_members.user_id)
 
