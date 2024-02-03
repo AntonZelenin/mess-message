@@ -80,11 +80,11 @@ async def get_chats(
     chats = {}
     for row in res:
         if row["id"] not in chats:
-            chats[row["id"]] = schemas.Chat(chat_id=row["id"], name=row["name"], member_ids=[], messages=[])
+            chats[row["id"]] = schemas.Chat(id=row["id"], name=row["name"], member_ids=[], messages=[])
 
         chats[row["id"]].member_ids.append(row["user_id"])
 
-    messages = await repository.get_chats_messages(session, [chat.chat_id for chat in chats.values()])
+    messages = await repository.get_chats_messages(session, [chat.id for chat in chats.values()])
 
     for message in messages:
         chats[message.chat_id].messages.append(message)

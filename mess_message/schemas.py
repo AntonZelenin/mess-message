@@ -15,7 +15,7 @@ class Message(BaseModel):
 
 
 class Chat(BaseModel):
-    chat_id: int
+    id: int
     name: Optional[str]
     member_ids: list[str]
     messages: list[Message]
