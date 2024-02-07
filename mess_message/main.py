@@ -12,23 +12,23 @@ conn_manager = ConnectionManager()
 
 # todo it's not working, probably
 @app.middleware('http')
-async def make_sure_user_id_is_present(request: Request, call_next):
+async def make_sure_username_is_present(request: Request, call_next):
     # todo it's duplicate
-    x_user_id = request.headers.get('x-sub')
-    if x_user_id is None:
+    x_username = request.headers.get('x-username')
+    if x_username is None:
         raise HTTPException(status_code=401, detail='Unauthorized')
     return await call_next(request)
 
 
 @app.post('/api/message/v1/chats')
-async def create_chat(chat: schemas.Chat,  x_sub: str = Header(None), session: AsyncSession = Depends(get_session)):
+async def create_chat(chat: schemas.NewChat, x_username: str = Header(...), session: AsyncSession = Depends(get_session)):
     if await repository.chat_exists(session, chat.name):
         raise HTTPException(status_code=409, detail='Chat already exists')
 
     chat_db = await repository.create_chat(session, chat.name)
 
     try:
-        await repository.add_chat_members(session, chat_db.id, [x_sub] + list(chat.member_ids))
+        await repository.add_chat_members(session, chat_db.id, [x_username] + list(chat.member_usernames))
     except Exception as e:
         await repository.delete_chat(session, chat_db.id)
         raise e
@@ -38,30 +38,34 @@ async def create_chat(chat: schemas.Chat,  x_sub: str = Header(None), session: A
 
 @app.websocket('/ws/message/v1/messages')
 async def message_socket(websocket: WebSocket, session: AsyncSession = Depends(get_session)):
-    user_id = websocket.headers.get('x-sub')
+    username = websocket.headers.get('x-username')
     # todo make conn_manager context manager, and maybe a dependency?
-    await conn_manager.connect(user_id, websocket)
+    await conn_manager.connect(username, websocket)
 
     try:
         while True:
             data = await websocket.receive_text()
-            message = schemas.Message.model_validate_json(data)
+            message = schemas.NewMessage.model_validate_json(data)
 
-            if not await repository.is_user_in_chat(session, user_id, message.chat_id):
+            if username != message.sender_username:
                 # todo this message will not be shown, it's not http
-                # todo do not tell the user that the chat exists
-                raise HTTPException(status_code=403, detail='You are not in this chat')
+                # todo logger
+                raise HTTPException(status_code=403)
+            if not await repository.is_user_in_chat(session, username, message.chat_id):
+                # todo this message will not be shown, it's not http
+                # todo log that someone tried to send a message to a chat they are not in
+                raise HTTPException(status_code=403)
 
             message_ = await repository.create_message(
                 session,
                 chat_id=message.chat_id,
-                sender_id=user_id,
+                sender_username=username,
                 text=message.text,
             )
             # todo it should be async
             sender.send_message(message_)
     except WebSocketDisconnect:
-        await conn_manager.disconnect(user_id, websocket)
+        await conn_manager.disconnect(username, websocket)
         raise
     except Exception as e:
         # It's a good practice to handle exceptions to close the WebSocket connection cleanly
@@ -73,20 +77,20 @@ async def message_socket(websocket: WebSocket, session: AsyncSession = Depends(g
 async def get_chats(
         num_of_chats: int = 20,
         session: AsyncSession = Depends(get_session),
-        x_sub: str = Header(None),
+        x_username: str = Header(None),
 ) -> list[schemas.Chat]:
-    res = list(await repository.get_recent_chats(session, num_of_chats, user_id=x_sub))
+    res = list(await repository.get_recent_chats(session, num_of_chats, username=x_username))
 
     chats = {}
     for row in res:
         if row["id"] not in chats:
-            chats[row["id"]] = schemas.Chat(id=row["id"], name=row["name"], member_ids=[], messages=[])
+            chats[row["id"]] = schemas.Chat(id=row["id"], name=row["name"], member_usernames=[], messages=[])
 
-        chats[row["id"]].member_ids.append(row["user_id"])
+        chats[row["id"]].member_usernames.append(row["username"])
 
     messages = await repository.get_chats_messages(session, [chat.id for chat in chats.values()])
 
     for message in messages:
-        chats[message.chat_id].messages.append(message)
+        chats[message.chat_id].message.append(message)
 
     return list(chats.values())

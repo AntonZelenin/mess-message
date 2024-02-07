@@ -1,8 +1,8 @@
-"""create chats, chat_memebers, messages tables
+"""create chat, chat_memebers, messages tables
 
-Revision ID: 458caa717314
+Revision ID: e17914ea0177
 Revises: 
-Create Date: 2024-02-03 03:16:25.867161
+Create Date: 2024-02-07 23:18:07.192241
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '458caa717314'
+revision: str = 'e17914ea0177'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -27,16 +27,16 @@ def upgrade() -> None:
     )
     op.create_table('chat_members',
     sa.Column('chat_id', sa.Integer(), nullable=False),
-    sa.Column('user_id', sa.String(length=32), nullable=False),
+    sa.Column('username', sa.String(length=150), nullable=False),
     sa.ForeignKeyConstraint(['chat_id'], ['chats.id'], ),
-    sa.PrimaryKeyConstraint('chat_id', 'user_id')
+    sa.PrimaryKeyConstraint('chat_id', 'username', name='chat_member_pk')
     )
     op.create_table('messages',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('chat_id', sa.Integer(), nullable=False),
-    sa.Column('sender_id', sa.String(length=32), nullable=False),
+    sa.Column('sender_username', sa.String(length=150), nullable=False),
     sa.Column('text', sa.String(length=255), nullable=False),
-    sa.Column('created_at', sa.Float, nullable=False),
+    sa.Column('created_at', sa.Float(), nullable=False),
     sa.ForeignKeyConstraint(['chat_id'], ['chats.id'], ),
     sa.PrimaryKeyConstraint('id')
     )

@@ -6,10 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from mess_message.models.chat import Message, Chat, ChatMember
 
 
-async def create_message(session: AsyncSession, chat_id: int, sender_id: str, text: str) -> Message:
+async def create_message(session: AsyncSession, chat_id: int, sender_username: str, text: str) -> Message:
     message = Message(
         chat_id=chat_id,
-        sender_id=sender_id,
+        sender_username=sender_username,
         text=text,
     )
     session.add(message)
@@ -38,14 +38,14 @@ async def create_chat(session: AsyncSession, name: str) -> Chat:
     return chat
 
 
-async def add_chat_members(session: AsyncSession, chat_id: int, user_ids: Sequence[str]):
-    chat_members = [ChatMember(chat_id=chat_id, user_id=user_id) for user_id in user_ids]
+async def add_chat_members(session: AsyncSession, chat_id: int, member_usernames: Sequence[str]):
+    chat_members = [ChatMember(chat_id=chat_id, username=username) for username in member_usernames]
     session.add_all(chat_members)
     await session.commit()
 
 
-async def is_user_in_chat(session: AsyncSession, user_id: str, chat_id: int) -> bool:
-    return (await session.scalars(select(ChatMember).filter_by(chat_id=chat_id, user_id=user_id))).first() is not None
+async def is_user_in_chat(session: AsyncSession, username: str, chat_id: int) -> bool:
+    return (await session.scalars(select(ChatMember).filter_by(chat_id=chat_id, username=username))).first() is not None
 
 
 async def delete_chat(session: AsyncSession, chat_id: int) -> None:
@@ -54,11 +54,11 @@ async def delete_chat(session: AsyncSession, chat_id: int) -> None:
     await session.commit()
 
 
-async def get_recent_chats(session: AsyncSession, num_of_chats: int, user_id: str) -> Sequence:
+async def get_recent_chats(session: AsyncSession, num_of_chats: int, username: str) -> Sequence:
     # todo indices?
     res = await session.execute(
         select(ChatMember.chat_id)
-        .where(ChatMember.user_id == user_id)
+        .where(ChatMember.username == username)
     )
     user_chat_ids = res.scalars().all()
 
@@ -72,7 +72,7 @@ async def get_recent_chats(session: AsyncSession, num_of_chats: int, user_id: st
     recent_chat_ids = result.scalars().all()
 
     result = await session.execute(
-        select(Chat.id, Chat.name, ChatMember.user_id).
+        select(Chat.id, Chat.name, ChatMember.username).
         join(ChatMember, ChatMember.chat_id == Chat.id).
         where(Chat.id.in_(recent_chat_ids))
     )
