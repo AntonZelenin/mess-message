@@ -54,7 +54,7 @@ async def delete_chat(session: AsyncSession, chat_id: int) -> None:
     await session.commit()
 
 
-async def get_recent_chats(session: AsyncSession, num_of_chats: int, username: str) -> Sequence:
+async def get_chats_by_username(session: AsyncSession, num_of_chats: int, username: str) -> Sequence:
     # todo indices?
     res = await session.execute(
         select(ChatMember.chat_id)

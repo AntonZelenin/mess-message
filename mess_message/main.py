@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -5,12 +7,12 @@ from mess_message import schemas, sender
 from mess_message import repository
 from mess_message.db import get_session
 from mess_message.managers import ConnectionManager
+from mess_message.schemas import SearchChatResults
 
 app = FastAPI()
 conn_manager = ConnectionManager()
 
 
-# todo it's not working, probably
 @app.middleware('http')
 async def make_sure_username_is_present(request: Request, call_next):
     # todo it's duplicate
@@ -21,7 +23,11 @@ async def make_sure_username_is_present(request: Request, call_next):
 
 
 @app.post('/api/message/v1/chats')
-async def create_chat(chat: schemas.NewChat, x_username: str = Header(...), session: AsyncSession = Depends(get_session)):
+async def create_chat(
+        chat: schemas.NewChat,
+        x_username: str = Header(...),
+        session: AsyncSession = Depends(get_session),
+):
     if await repository.chat_exists(session, chat.name):
         raise HTTPException(status_code=409, detail='Chat already exists')
 
@@ -75,11 +81,16 @@ async def message_socket(websocket: WebSocket, session: AsyncSession = Depends(g
 
 @app.get('/api/message/v1/chats')
 async def get_chats(
+        username_like: Optional[str] = None,
         num_of_chats: int = 20,
         session: AsyncSession = Depends(get_session),
-        x_username: str = Header(None),
-) -> list[schemas.Chat]:
-    res = list(await repository.get_recent_chats(session, num_of_chats, username=x_username))
+        x_username: str = Header(...),
+) -> SearchChatResults:
+    if username_like == "":
+        return SearchChatResults(chats=[])
+
+    username = username_like or x_username
+    res = list(await repository.get_chats_by_username(session, num_of_chats, username))
 
     chats = {}
     for row in res:
@@ -93,4 +104,4 @@ async def get_chats(
     for message in messages:
         chats[message.chat_id].message.append(message)
 
-    return list(chats.values())
+    return SearchChatResults(chats=list(chats.values()))

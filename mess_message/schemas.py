@@ -32,3 +32,7 @@ class Chat(BaseModel):
     name: str
     member_usernames: list[str]
     messages: list[Message]
+
+
+class SearchChatResults(BaseModel):
+    chats: list[Chat]
