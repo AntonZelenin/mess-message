@@ -44,6 +44,10 @@ async def add_chat_members(session: AsyncSession, chat_id: int, member_usernames
     await session.commit()
 
 
+async def get_chat_members(session: AsyncSession, chat_id: int) -> Sequence[ChatMember]:
+    return (await session.scalars(select(ChatMember).filter_by(chat_id=chat_id))).all()
+
+
 async def is_user_in_chat(session: AsyncSession, username: str, chat_id: int) -> bool:
     return (await session.scalars(select(ChatMember).filter_by(chat_id=chat_id, username=username))).first() is not None
 

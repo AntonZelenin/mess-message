@@ -17,11 +17,11 @@ class ConnectionManager:
             if username in self.active_connections:
                 self.active_connections[username].remove(websocket)
 
-    # async def send_personal_message(self, recipient_user_id: str, message: str):
-    #     async with self.lock:
-    #         if recipient_user_id in self.active_connections:
-    #             for connection in self.active_connections[recipient_user_id]:
-    #                 await connection.send_text(message)
+    async def send_personal_message(self, recipient_username: str, message: str):
+        async with self.lock:
+            if recipient_username in self.active_connections:
+                for connection in self.active_connections[recipient_username]:
+                    await connection.send_text(message)
 
     async def _add(self, username: str, websocket: WebSocket):
         async with self.lock:

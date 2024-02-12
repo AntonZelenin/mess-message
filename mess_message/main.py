@@ -68,8 +68,7 @@ async def message_socket(websocket: WebSocket, session: AsyncSession = Depends(g
                 sender_username=username,
                 text=message.text,
             )
-            # todo it should be async
-            sender.send_message(message_)
+            await sender.send_message(message_, session, conn_manager)
     except WebSocketDisconnect:
         await conn_manager.disconnect(username, websocket)
         raise
