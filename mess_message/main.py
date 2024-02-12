@@ -7,7 +7,7 @@ from mess_message import schemas, sender
 from mess_message import repository
 from mess_message.db import get_session
 from mess_message.managers import ConnectionManager
-from mess_message.schemas import SearchChatResults
+from mess_message.schemas import SearchChatResults, Chat
 
 app = FastAPI()
 conn_manager = ConnectionManager()
@@ -27,7 +27,7 @@ async def create_chat(
         chat: schemas.NewChat,
         x_username: str = Header(...),
         session: AsyncSession = Depends(get_session),
-):
+) -> Chat:
     if await repository.chat_exists(session, chat.name):
         raise HTTPException(status_code=409, detail='Chat already exists')
 
@@ -35,11 +35,18 @@ async def create_chat(
 
     try:
         await repository.add_chat_members(session, chat_db.id, [x_username] + list(chat.member_usernames))
+        await repository.create_message(session, chat_db.id, x_username, chat.first_message)
     except Exception as e:
         await repository.delete_chat(session, chat_db.id)
         raise e
 
-    return {'message': 'Chat created', 'chat': chat}
+    messages = await repository.get_chats_messages(session, chat_db.id)
+    return Chat(
+        id=chat_db.id,
+        name=chat_db.name,
+        member_usernames=chat.member_usernames,
+        messages=list(messages),
+    )
 
 
 @app.websocket('/ws/message/v1/messages')
