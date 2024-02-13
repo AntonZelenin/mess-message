@@ -118,8 +118,19 @@ async def create_chat(
         await repository.delete_chat(chat_db.id)
         raise e
 
-    messages = await repository.get_chats_messages([chat_db.id])
-    unread_messages = await repository.filter_read_messages(messages, x_username)
+    db_messages = await repository.get_chats_messages([chat_db.id])
+    unread_messages = await repository.filter_read_messages(db_messages, x_username)
+    chat_members = await repository.get_chat_members(chat_db.id)
+
+    first_message = schemas.Message(
+        chat_id=db_messages[0].chat_id,
+        sender_username=db_messages[0].sender_username,
+        text=db_messages[0].text,
+        is_read=db_messages[0].id not in unread_messages,
+        created_at=db_messages[0].created_at,
+    )
+    # todo why I cannot use chat_db.chat_members here? it argues on greenlet.. something related to async
+    await sender.send_message(first_message, chat_members, conn_manager)
 
     return Chat(
         id=chat_db.id,
@@ -133,7 +144,7 @@ async def create_chat(
                 is_read=message.id not in unread_messages,
                 created_at=message.created_at,
             )
-            for message in messages
+            for message in db_messages
         ]
     )
 
