@@ -8,7 +8,7 @@ from sqlalchemy import pool
 from alembic import context
 
 from mess_message import models
-from mess_message.models.chat import Chat, ChatMember, Message
+from mess_message.models.chat import Chat, ChatMember, Message, UnreadMessages
 
 
 if os.environ.get('ENVIRONMENT', 'dev') == 'dev':
