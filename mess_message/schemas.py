@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import BaseModel
 
 
@@ -13,11 +11,8 @@ class Message(BaseModel):
     chat_id: int
     sender_username: str
     text: str
-    created_at: Optional[float] = None
-
-    class Config:
-        from_attributes = True
-        strict = True
+    is_read: bool
+    created_at: float
 
 
 class NewChat(BaseModel):

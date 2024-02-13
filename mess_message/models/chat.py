@@ -36,3 +36,14 @@ class Message(Base):
     sender_username: Mapped[str] = mapped_column(String(150), nullable=False)
     text: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[float] = mapped_column(Float, default=datetime.now(timezone.utc).timestamp())
+
+
+class UnreadMessages(Base):
+    __tablename__ = 'unread_messages'
+
+    message_id: Mapped[int] = mapped_column(Integer, ForeignKey('messages.id'))
+    username: Mapped[str] = mapped_column(String(150), nullable=False)
+
+    __table_args__ = (
+        PrimaryKeyConstraint('message_id', 'username', name='unread_messages_pk'),
+    )
