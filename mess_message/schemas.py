@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -16,15 +18,14 @@ class Message(BaseModel):
 
 
 class NewChat(BaseModel):
-    name: str
-    creator_username: str
+    name: Optional[str]
     member_usernames: list[str]
     first_message: str
 
 
 class Chat(BaseModel):
     id: int
-    name: str
+    name: Optional[str]
     member_usernames: list[str]
     messages: list[Message]
 

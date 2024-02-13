@@ -110,13 +110,10 @@ async def create_chat(
         x_username: str = Header(...),
         repository: Repository = Depends(get_repository),
 ) -> Chat:
-    if await repository.chat_exists(new_chat.name):
-        raise HTTPException(status_code=409, detail='Chat already exists')
-
     chat_db = await repository.create_chat(new_chat.name)
 
     try:
-        await repository.add_chat_members(chat_db.id, [x_username] + list(new_chat.member_usernames))
+        await repository.add_chat_members(chat_db.id, list(new_chat.member_usernames))
         await repository.save_message(chat_db.id, x_username, new_chat.first_message)
     except Exception as e:
         await repository.delete_chat(chat_db.id)
@@ -140,3 +137,16 @@ async def create_chat(
             for message in messages
         ]
     )
+
+
+@app.post('/api/message/v1/chats/{chat_id}/read')
+async def mark_chat_as_read(
+        chat_id: int,
+        x_username: str = Header(...),
+        repository: Repository = Depends(get_repository),
+):
+    if not await repository.is_user_in_chat(x_username, chat_id):
+        raise HTTPException(status_code=403, detail='User is not in chat')
+
+    await repository.read_all_messages(chat_id, x_username)
+    return {"message": "ok"}

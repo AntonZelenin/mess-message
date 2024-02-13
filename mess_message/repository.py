@@ -1,11 +1,11 @@
 from typing import Sequence
 
 from fastapi import Depends
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mess_message.db import get_session
-from mess_message.models.chat import Message, Chat, ChatMember, UnreadMessages
+from mess_message.models.chat import Message, Chat, ChatMember, UnreadMessage
 
 
 class Repository:
@@ -33,16 +33,16 @@ class Repository:
         )).all()
 
         self.session.add_all(
-            [UnreadMessages(message_id=message.id, username=username) for username in chat_members]
+            [UnreadMessage(chat_id=message.chat_id, message_id=message.id, username=username) for username in chat_members]
         )
         await self.session.commit()
 
     async def filter_read_messages(self, messages: Sequence[Message], username: str) -> Sequence[Message]:
         return (await self.session.scalars(
-            select(UnreadMessages.message_id)
+            select(UnreadMessage.message_id)
             .filter(
-                UnreadMessages.message_id.in_([message.id for message in messages]),
-                UnreadMessages.username == username,
+                UnreadMessage.message_id.in_([message.id for message in messages]),
+                UnreadMessage.username == username,
             )
         )).all()
 
@@ -112,6 +112,17 @@ class Repository:
                 .order_by(Message.created_at.asc())
                 .limit(num_of_messages))
         ).all()
+
+    async def read_all_messages(self, chat_id: int, username: str):
+        stmt = (
+            delete(UnreadMessage)
+            .where(
+                (UnreadMessage.username == username) & (UnreadMessage.chat_id == chat_id)
+            )
+        )
+
+        await self.session.execute(stmt)
+        await self.session.commit()
 
 
 def get_repository(session: AsyncSession = Depends(get_session)) -> Repository:
