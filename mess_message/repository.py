@@ -40,8 +40,10 @@ class Repository:
     async def filter_read_messages(self, messages: Sequence[Message], username: str) -> Sequence[Message]:
         return (await self.session.scalars(
             select(UnreadMessages.message_id)
-            .filter(UnreadMessages.message_id.in_([message.id for message in messages]),
-                    UnreadMessages.username == username)
+            .filter(
+                UnreadMessages.message_id.in_([message.id for message in messages]),
+                UnreadMessages.username == username,
+            )
         )).all()
 
     async def get_messages(self, chat_id: int, number: int = 10) -> Sequence[Message]:
@@ -107,7 +109,7 @@ class Repository:
             await self.session.scalars(
                 select(Message)
                 .filter(Message.chat_id.in_(chat_ids))
-                .order_by(Message.created_at.desc())
+                .order_by(Message.created_at.asc())
                 .limit(num_of_messages))
         ).all()
 
