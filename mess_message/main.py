@@ -1,10 +1,9 @@
-from typing import Optional, Sequence
+from typing import Optional
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Depends, Header, HTTPException
 
 from mess_message import schemas, sender, logger
 from mess_message.managers import ConnectionManager
-from mess_message.models.chat import Message
 from mess_message.repository import get_repository, Repository
 from mess_message.schemas import SearchChatResults, Chat
 
@@ -87,7 +86,7 @@ async def get_chats(
 
         chats[row["id"]].member_usernames.append(row["username"])
 
-    messages: Sequence[Message] = await repository.get_chats_messages([chat.id for chat in chats.values()])
+    messages = await repository.get_chats_messages([chat.id for chat in chats.values()])
     unread_messages = await repository.filter_read_messages(messages, x_username)
 
     for message in messages:
@@ -96,7 +95,7 @@ async def get_chats(
                 chat_id=message.chat_id,
                 sender_username=message.sender_username,
                 text=message.text,
-                is_read=message not in unread_messages,
+                is_read=message.id not in unread_messages,
                 created_at=message.created_at,
             )
         )
@@ -131,7 +130,7 @@ async def create_chat(
                 chat_id=message.chat_id,
                 sender_username=message.sender_username,
                 text=message.text,
-                is_read=message not in unread_messages,
+                is_read=message.id not in unread_messages,
                 created_at=message.created_at,
             )
             for message in messages
