@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Sequence, Optional
 
 from fastapi import Depends
 from sqlalchemy import select, delete
@@ -62,6 +62,9 @@ class Repository:
 
         return chat
 
+    async def get_chat(self, chat_id: int) -> Optional[Chat]:
+        return (await self.session.scalars(select(Chat).filter_by(id=chat_id))).first()
+
     async def add_chat_members(self, chat_id: int, member_usernames: Sequence[str]):
         chat_members = [ChatMember(chat_id=chat_id, username=username) for username in member_usernames]
         self.session.add_all(chat_members)
@@ -75,7 +78,7 @@ class Repository:
             await self.session.scalars(
                 select(ChatMember).filter_by(chat_id=chat_id, username=username))).first() is not None
 
-    async def delete_chat(self, chat_id: int) -> None:
+    async def delete_chat(self, chat_id: int):
         chat = await self.session.scalar(select(Chat).filter_by(id=chat_id))
         await self.session.delete(chat)
         await self.session.commit()

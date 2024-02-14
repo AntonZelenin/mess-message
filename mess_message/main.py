@@ -66,6 +66,40 @@ async def message_socket(websocket: WebSocket, repository: Repository = Depends(
         raise e
 
 
+@app.get('/api/message/v1/chats/{chat_id}')
+async def get_chat(
+        chat_id: int,
+        x_username: str = Header(...),
+        repository: Repository = Depends(get_repository),
+) -> Chat:
+    if not await repository.is_user_in_chat(x_username, chat_id):
+        raise HTTPException(status_code=403, detail='User is not in chat')
+
+    chat = await repository.get_chat(chat_id)
+    if chat is None:
+        raise HTTPException(status_code=404, detail='Chat not found')
+
+    messages = await repository.get_chats_messages([chat_id])
+    unread_messages = await repository.filter_read_messages(messages, x_username)
+    chat_members = await repository.get_chat_members(chat_id)
+
+    return Chat(
+        id=chat_id,
+        name=chat.name,
+        member_usernames=[chat_member.username for chat_member in chat_members],
+        messages=[
+            schemas.Message(
+                chat_id=message.chat_id,
+                sender_username=message.sender_username,
+                text=message.text,
+                is_read=message.id not in unread_messages,
+                created_at=message.created_at,
+            )
+            for message in messages
+        ]
+    )
+
+
 @app.get('/api/message/v1/chats')
 async def get_chats(
         username_like: Optional[str] = None,
