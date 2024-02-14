@@ -1,7 +1,7 @@
 from typing import Sequence, Optional
 
 from fastapi import Depends
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mess_message.db import get_session
@@ -107,14 +107,29 @@ class Repository:
         )
         return result.mappings().all()
 
-    async def get_chats_messages(self, chat_ids: list, num_of_messages: int = 20) -> Sequence[Message]:
-        return (
-            await self.session.scalars(
-                select(Message)
-                .filter(Message.chat_id.in_(chat_ids))
-                .order_by(Message.created_at.asc())
-                .limit(num_of_messages))
-        ).all()
+    async def get_chats_messages(self, chat_ids: list, num_of_messages: int = 100) -> Sequence[Message]:
+        ranked_messages_subq = (
+            select(
+                Message.id,
+                func.rank().over(
+                    partition_by=Message.chat_id,
+                    order_by=Message.created_at.desc()
+                ).label('rank')
+            )
+            .filter(Message.chat_id.in_(chat_ids))
+            .subquery()
+        )
+
+        limited_messages_query = (
+            select(Message)
+            .join(ranked_messages_subq,
+                  ranked_messages_subq.c.id == Message.id)
+            .filter(ranked_messages_subq.c.rank <= num_of_messages)
+            .order_by(Message.chat_id, Message.created_at.desc())
+        )
+
+        result = await self.session.execute(limited_messages_query)
+        return result.scalars().all()
 
     async def read_all_messages(self, chat_id: int, username: str):
         stmt = (
