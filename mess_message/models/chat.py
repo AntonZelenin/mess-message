@@ -35,7 +35,7 @@ class Message(Base):
     chat_id: Mapped[int] = mapped_column(Integer, ForeignKey('chats.id'), nullable=False)
     sender_username: Mapped[str] = mapped_column(String(150), nullable=False)
     text: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[float] = mapped_column(Float, default=datetime.now(timezone.utc).timestamp())
+    created_at: Mapped[float] = mapped_column(Float, default=lambda: datetime.now(timezone.utc).timestamp())
 
 
 class UnreadMessage(Base):
