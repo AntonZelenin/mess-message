@@ -113,7 +113,7 @@ class Repository:
                 Message.id,
                 func.rank().over(
                     partition_by=Message.chat_id,
-                    order_by=Message.created_at.desc()
+                    order_by=Message.created_at.asc()
                 ).label('rank')
             )
             .filter(Message.chat_id.in_(chat_ids))
@@ -125,7 +125,7 @@ class Repository:
             .join(ranked_messages_subq,
                   ranked_messages_subq.c.id == Message.id)
             .filter(ranked_messages_subq.c.rank <= num_of_messages)
-            .order_by(Message.chat_id, Message.created_at.desc())
+            .order_by(Message.chat_id, Message.created_at.asc())
         )
 
         result = await self.session.execute(limited_messages_query)
