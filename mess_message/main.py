@@ -82,11 +82,13 @@ async def get_chat(
 
     messages = await repository.get_chat_messages(chat_id)
     unread_messages = await repository.filter_read_messages(messages, x_user_id)
+    chat_members = await repository.get_chat_members(chat_id)
 
     return Chat(
         id=chat_id,
         name=chat.name,
-        member_ids=[chat_member.user_id for chat_member in chat.chat_members],
+        # it doesn't work with chat.chat_members because of greenlet. Why??
+        member_ids=[chat_member.user_id for chat_member in chat_members],
         messages=[
             schemas.Message(
                 chat_id=message.chat_id,

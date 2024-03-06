@@ -12,7 +12,7 @@ class Chat(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=True)
 
-    chat_members: Mapped['ChatMember'] = relationship("ChatMember", back_populates="chat")
+    chat_members: Mapped['ChatMember'] = relationship("ChatMember", back_populates="chat", lazy='select')
 
 
 class ChatMember(Base):
@@ -21,7 +21,7 @@ class ChatMember(Base):
     chat_id: Mapped[int] = mapped_column(Integer, ForeignKey('chats.id'))
     user_id: Mapped[str] = mapped_column(String(150), nullable=False)
 
-    chat: Mapped['Chat'] = relationship("Chat", back_populates="chat_members")
+    chat: Mapped['Chat'] = relationship("Chat", back_populates="chat_members", lazy='select')
 
     __table_args__ = (
         PrimaryKeyConstraint('chat_id', 'user_id', name='chat_member_pk'),
