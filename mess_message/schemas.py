@@ -5,13 +5,13 @@ from pydantic import BaseModel
 
 class NewMessage(BaseModel):
     chat_id: int
-    sender_username: str
+    sender_id: str
     text: str
 
 
 class Message(BaseModel):
     chat_id: int
-    sender_username: str
+    sender_id: str
     text: str
     is_read: bool
     created_at: float
@@ -19,14 +19,14 @@ class Message(BaseModel):
 
 class NewChat(BaseModel):
     name: Optional[str]
-    member_usernames: list[str]
+    member_ids: list[str]
     first_message: str
 
 
 class Chat(BaseModel):
     id: int
     name: Optional[str]
-    member_usernames: list[str]
+    member_ids: list[str]
     messages: list[Message]
 
 

@@ -19,12 +19,12 @@ class ChatMember(Base):
     __tablename__ = 'chat_members'
 
     chat_id: Mapped[int] = mapped_column(Integer, ForeignKey('chats.id'))
-    username: Mapped[str] = mapped_column(String(150), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(150), nullable=False)
 
     chat: Mapped['Chat'] = relationship("Chat", back_populates="chat_members")
 
     __table_args__ = (
-        PrimaryKeyConstraint('chat_id', 'username', name='chat_member_pk'),
+        PrimaryKeyConstraint('chat_id', 'user_id', name='chat_member_pk'),
     )
 
 
@@ -33,7 +33,7 @@ class Message(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     chat_id: Mapped[int] = mapped_column(Integer, ForeignKey('chats.id'), nullable=False)
-    sender_username: Mapped[str] = mapped_column(String(150), nullable=False)
+    sender_id: Mapped[str] = mapped_column(String(150), nullable=False)
     text: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[float] = mapped_column(Float, default=lambda: datetime.now(timezone.utc).timestamp())
 
@@ -43,8 +43,8 @@ class UnreadMessage(Base):
 
     chat_id: Mapped[int] = mapped_column(Integer, ForeignKey('chats.id'))
     message_id: Mapped[int] = mapped_column(Integer, ForeignKey('messages.id'))
-    username: Mapped[str] = mapped_column(String(150), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(150), nullable=False)
 
     __table_args__ = (
-        PrimaryKeyConstraint('message_id', 'username', name='unread_messages_pk'),
+        PrimaryKeyConstraint('message_id', 'user_id', name='unread_messages_pk'),
     )

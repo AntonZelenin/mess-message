@@ -8,14 +8,14 @@ class ConnectionManager:
         self.active_connections = {}
         self.lock = asyncio.Lock()
 
-    async def connect(self, username: str, websocket: WebSocket):
+    async def connect(self, key: str, websocket: WebSocket):
         await websocket.accept()
-        await self._add(username, websocket)
+        await self._add(key, websocket)
 
-    async def disconnect(self, username: str, websocket: WebSocket):
+    async def disconnect(self, key: str, websocket: WebSocket):
         async with self.lock:
-            if username in self.active_connections:
-                self.active_connections[username].remove(websocket)
+            if key in self.active_connections:
+                self.active_connections[key].remove(websocket)
 
     async def send_personal_message(self, recipient_username: str, message: str):
         async with self.lock:
@@ -23,9 +23,9 @@ class ConnectionManager:
                 for connection in self.active_connections[recipient_username]:
                     await connection.send_text(message)
 
-    async def _add(self, username: str, websocket: WebSocket):
+    async def _add(self, key: str, websocket: WebSocket):
         async with self.lock:
-            if username not in self.active_connections:
-                self.active_connections[username] = []
+            if key not in self.active_connections:
+                self.active_connections[key] = []
 
-            self.active_connections[username].append(websocket)
+            self.active_connections[key].append(websocket)
