@@ -7,7 +7,13 @@ from mess_message import constants
 
 
 class Settings(BaseSettings):
+    db_url: str
     async_db_url: str
+    redis_url: str
+    redis_port: int = 6379
+    debug: bool = False
+
+    num_of_chats_to_per_page: int = 30
 
     def __init__(self):
         if os.environ.get('ENVIRONMENT', 'dev') == 'dev':
@@ -17,5 +23,5 @@ class Settings(BaseSettings):
 
 
 @lru_cache
-def get_settings():
+def get_settings() -> Settings:
     return Settings()

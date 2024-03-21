@@ -1,25 +1,20 @@
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Depends, Header, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Header, HTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 
-from mess_message import schemas, sender, logger
+from mess_message import schemas, sender, logger, middleware
+from mess_message.dependencies import *
 from mess_message.managers import ConnectionManager
-from mess_message.repository import get_repository, Repository
-from mess_message.schemas import SearchChatResults, Chat
+from mess_message.repository import Repository
+from mess_message.schemas import GetChatResults, Chat
+from mess_message.settings import get_settings
 
 logger_ = logger.get_logger(__name__, stdout=True)
 
 app = FastAPI()
+if not get_settings().debug:
+    app.add_middleware(BaseHTTPMiddleware, dispatch=middleware.validate_headers)
+
 conn_manager = ConnectionManager()
-
-
-@app.middleware('http')
-async def validate_headers(request: Request, call_next):
-    if request.headers.get('x-user-id') is None:
-        logger_.error('x-user-id header is missing')
-        raise HTTPException(status_code=401)
-    if request.headers.get('x-username') is None:
-        logger_.error('x-username header is missing')
-        raise HTTPException(status_code=401)
-    return await call_next(request)
 
 
 @app.websocket('/ws/message/v1/messages')
@@ -59,7 +54,8 @@ async def message_socket(websocket: WebSocket, repository: Repository = Depends(
             chat_members = await repository.get_chat_members(message.chat_id)
             await sender.send_message(message, chat_members, conn_manager)
     except WebSocketDisconnect as e:
-        logger_.info(f'websocket disconnected: {user_id}, code {e.code}: {e.reason}')
+        if e.code != 1001:
+            logger_.info(f'websocket disconnected: {user_id}, code {e.code}: {e.reason}')
         await conn_manager.disconnect(user_id, websocket)
     except Exception as e:
         logger_.exception(f'websocket error: {user_id}, {e}')
@@ -81,7 +77,7 @@ async def get_chat(
         raise HTTPException(status_code=404, detail='Chat not found')
 
     messages = await repository.get_chat_messages(chat_id)
-    unread_messages = await repository.filter_read_messages(messages, x_user_id)
+    unread_messages = await repository.get_unread_message_ids(x_user_id, [chat_id])
     chat_members = await repository.get_chat_members(chat_id)
 
     return Chat(
@@ -102,13 +98,31 @@ async def get_chat(
     )
 
 
+@app.get('/api/message/v1/initial-chats')
+async def get_initial_chats(
+        chat_provider_: ChatProvider = Depends(get_chat_provider),
+        x_user_id: str = Header(...),
+) -> GetChatResults:
+    return GetChatResults(
+        chats=await chat_provider_.get_recent_chats(x_user_id),
+    )
+
+
 @app.get('/api/message/v1/chats')
 async def get_chats(
         num_of_chats: int = 20,
         repository: Repository = Depends(get_repository),
         x_user_id: str = Header(...),
-) -> SearchChatResults:
-    res = list(await repository.get_chats_by_user_id(num_of_chats, x_user_id))
+) -> GetChatResults:
+    # Assuming Redis always has the latest data (possibly with a small delay)
+    # 1. Use an ordered set in Redis to store ordered chats based on the last message timestamp
+    # 2. Keep the recent messages in the cache. Write/trim complexity will be O(1) for every new message, so I think even for high message rate it should be fine
+    # 3. Get recent chat ids from the cache and fallback to the db if not found
+    # 4. Get recent messages from the cache and fallback to the db if not found
+    # 5. Cache everything that is not in the cache
+    # 6. Use separate endpoints for initial chats retrieval and for getting more chats when scrolling
+    # todo wtf is this? I probably should use provider
+    res = list(await repository.get_recent_user_chats(x_user_id, [], num_of_chats))
 
     chats: dict[int, Chat] = {}
     for row in res:
@@ -118,7 +132,7 @@ async def get_chats(
         chats[row["id"]].member_ids.append(row["user_id"])
 
     messages = await repository.get_chats_messages([chat.id for chat in chats.values()])
-    unread_messages = await repository.filter_read_messages(messages, x_user_id)
+    unread_messages = await repository.get_unread_message_ids(x_user_id, [chat.id for chat in chats.values()])
 
     for message in messages:
         chats[message.chat_id].messages.append(
@@ -131,7 +145,7 @@ async def get_chats(
             )
         )
 
-    return SearchChatResults(chats=list(chats.values()))
+    return GetChatResults(chats=list(chats.values()))
 
 
 @app.post('/api/message/v1/chats')

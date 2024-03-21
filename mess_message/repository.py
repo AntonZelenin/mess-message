@@ -1,11 +1,10 @@
 from typing import Sequence, Optional
 
-from fastapi import Depends
 from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from mess_message.db import get_session
-from mess_message.models.chat import Message, Chat, ChatMember, UnreadMessage
+from mess_message.helpers import UserId, ChatId, MessageId
+from mess_message.models.chat import Message, DBChat, ChatMember, UnreadMessage
 
 
 class Repository:
@@ -29,7 +28,7 @@ class Repository:
     async def add_to_unread_messages(self, message: Message):
         chat_members = (await self.session.scalars(
             select(ChatMember.user_id)
-            .filter(ChatMember.chat_id == message.chat_id, ChatMember.user_id != message.sender_id)
+            .where(ChatMember.chat_id == message.chat_id, ChatMember.user_id != message.sender_id)
         )).all()
 
         self.session.add_all(
@@ -37,23 +36,21 @@ class Repository:
         )
         await self.session.commit()
 
-    async def filter_read_messages(self, messages: Sequence[Message], user_id: str) -> Sequence[Message]:
+    async def get_unread_message_ids(self, user_id: UserId, chat_ids: list[ChatId]) -> Sequence[MessageId]:
         return (await self.session.scalars(
             select(UnreadMessage.message_id)
-            .filter(
-                UnreadMessage.message_id.in_([message.id for message in messages]),
-                UnreadMessage.user_id == user_id,
-            )
+            .where(UnreadMessage.chat_id.in_(chat_ids))
+            .where(UnreadMessage.user_id == user_id)
         )).all()
 
     async def get_messages(self, chat_id: int, number: int = 10) -> Sequence[Message]:
-        return (await self.session.scalars(select(Message).filter_by(chat_id=chat_id).limit(number))).all()
+        return (await self.session.scalars(select(Message).where(Message.chat_id == chat_id).limit(number))).all()
 
     async def chat_exists(self, chat_name: str) -> bool:
-        return (await self.session.scalars(select(Chat).filter_by(name=chat_name))).first() is not None
+        return (await self.session.scalars(select(DBChat).where(DBChat.name == chat_name))).first() is not None
 
-    async def create_chat(self, name: str) -> Chat:
-        chat = Chat(
+    async def create_chat(self, name: str) -> DBChat:
+        chat = DBChat(
             name=name,
         )
         self.session.add(chat)
@@ -62,8 +59,8 @@ class Repository:
 
         return chat
 
-    async def get_chat(self, chat_id: int) -> Optional[Chat]:
-        return (await self.session.scalars(select(Chat).filter_by(id=chat_id))).first()
+    async def get_chat(self, chat_id: ChatId) -> Optional[DBChat]:
+        return await self.session.scalar(select(DBChat).where(DBChat.id == chat_id))
 
     async def add_chat_members(self, chat_id: int, member_user_ids: Sequence[str]):
         chat_members = [ChatMember(chat_id=chat_id, user_id=user_id) for user_id in member_user_ids]
@@ -71,12 +68,12 @@ class Repository:
         await self.session.commit()
 
     async def get_chat_members(self, chat_id: int) -> Sequence[ChatMember]:
-        return (await self.session.scalars(select(ChatMember).filter_by(chat_id=chat_id))).all()
+        return (await self.session.scalars(select(ChatMember).where(ChatMember.chat_id == chat_id))).all()
 
     async def is_user_in_chat(self, user_id: str, chat_id: int) -> bool:
         return (
             await self.session.scalars(
-                select(ChatMember).filter_by(chat_id=chat_id, user_id=user_id))).first() is not None
+                select(ChatMember).where(ChatMember.chat_id == chat_id, user_id=user_id))).first() is not None
 
     async def delete_chat(self, chat_id: int):
         await self.session.execute(
@@ -92,33 +89,35 @@ class Repository:
         )
         await self.session.commit()
 
-        chat = await self.session.scalar(select(Chat).filter_by(id=chat_id))
+        chat = await self.session.scalar(select(DBChat).where(DBChat.id == chat_id))
         await self.session.delete(chat)
         await self.session.commit()
 
-    async def get_chats_by_user_id(self, num_of_chats: int, user_id: str) -> Sequence:
+    # it is quite slow btw, it linearly scans all messages
+    async def get_recent_user_chats(
+            self,
+            user_id: UserId,
+            exclude_chat_ids: list[ChatId],
+            num_of_chats: int = 50,
+    ) -> Sequence[DBChat]:
+        user_chat_ids_q = select(ChatMember.chat_id).where(ChatMember.user_id == user_id)
+
         # todo indices?
-        res = await self.session.execute(
-            select(ChatMember.chat_id)
-            .where(ChatMember.user_id == user_id)
-        )
-        user_chat_ids = res.scalars().all()
-
-        result = await self.session.execute(
-            select(Message.chat_id, Message.created_at)
-            .where(Message.chat_id.in_(user_chat_ids))
-            .order_by(Message.created_at)
-            .distinct()
+        recent_chat_ids = (await self.session.execute(
+            select(Message.chat_id, func.max(Message.created_at).label('max_created_at'))
+            .where(Message.chat_id.in_(user_chat_ids_q))
+            .where(Message.chat_id.not_in(exclude_chat_ids))
+            .group_by(Message.chat_id)
             .limit(num_of_chats)
-        )
-        recent_chat_ids = result.scalars().all()
+        )).scalars().all()
+
+        chat_ids = [chat_id for chat_id in recent_chat_ids]
 
         result = await self.session.execute(
-            select(Chat.id, Chat.name, ChatMember.user_id).
-            join(ChatMember, ChatMember.chat_id == Chat.id).
-            where(Chat.id.in_(recent_chat_ids))
+            # todo I think now it won't work because of greenlet
+            select(DBChat).where(DBChat.id.in_(chat_ids))
         )
-        return result.mappings().all()
+        return result.scalars().all()
 
     async def get_chat_messages(self, chat_id: int, num_of_messages: int = 100) -> Sequence[Message]:
         return await self.get_chats_messages([chat_id], num_of_messages)
@@ -132,7 +131,7 @@ class Repository:
                     order_by=Message.created_at.asc()
                 ).label('rank')
             )
-            .filter(Message.chat_id.in_(chat_ids))
+            .where(Message.chat_id.in_(chat_ids))
             .subquery()
         )
 
@@ -140,7 +139,7 @@ class Repository:
             select(Message)
             .join(ranked_messages_subq,
                   ranked_messages_subq.c.id == Message.id)
-            .filter(ranked_messages_subq.c.rank <= num_of_messages)
+            .where(ranked_messages_subq.c.rank <= num_of_messages)
             .order_by(Message.chat_id, Message.created_at.asc())
         )
 
@@ -157,7 +156,3 @@ class Repository:
 
         await self.session.execute(stmt)
         await self.session.commit()
-
-
-def get_repository(session: AsyncSession = Depends(get_session)) -> Repository:
-    return Repository(session)

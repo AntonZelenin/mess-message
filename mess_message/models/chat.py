@@ -6,13 +6,13 @@ from sqlalchemy.orm import mapped_column, Mapped, relationship
 from mess_message.models import Base
 
 
-class Chat(Base):
+class DBChat(Base):
     __tablename__ = 'chats'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=True)
 
-    chat_members: Mapped['ChatMember'] = relationship("ChatMember", back_populates="chat", lazy='select')
+    chat_members: Mapped[list['ChatMember']] = relationship("ChatMember", back_populates="chat")
 
 
 class ChatMember(Base):
@@ -21,7 +21,7 @@ class ChatMember(Base):
     chat_id: Mapped[int] = mapped_column(Integer, ForeignKey('chats.id'))
     user_id: Mapped[str] = mapped_column(String(150), nullable=False)
 
-    chat: Mapped['Chat'] = relationship("Chat", back_populates="chat_members", lazy='select')
+    chat: Mapped['DBChat'] = relationship("DBChat", back_populates="chat_members", lazy='select')
 
     __table_args__ = (
         PrimaryKeyConstraint('chat_id', 'user_id', name='chat_member_pk'),
